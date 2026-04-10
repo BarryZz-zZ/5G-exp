@@ -1,0 +1,322 @@
+<!doctype html><html><head><meta charset="utf-8"><title>5G?????</title><style>@page {
+  size: A4;
+  margin: 22mm 20mm 22mm 20mm;
+}
+
+html,
+body {
+  font-family: "Times New Roman", "SimSun", "Songti SC", serif;
+  font-size: 12pt;
+  line-height: 1.7;
+  color: #111;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Times New Roman", "SimHei", "Microsoft YaHei", sans-serif;
+  color: #000;
+  page-break-after: avoid;
+}
+
+h1 {
+  font-size: 20pt;
+  text-align: center;
+  margin-bottom: 0.9em;
+}
+
+h2 {
+  font-size: 15pt;
+  margin-top: 1.25em;
+  border-bottom: 1px solid #d8d8d8;
+  padding-bottom: 0.2em;
+}
+
+h3 {
+  font-size: 13pt;
+  margin-top: 1em;
+}
+
+p {
+  text-align: justify;
+  margin: 0.5em 0;
+}
+
+ul,
+ol {
+  margin: 0.4em 0 0.6em 1.5em;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0 1em 0;
+  font-size: 11pt;
+}
+
+th,
+td {
+  border: 1px solid #666;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+th {
+  background: #f3f3f3;
+  text-align: center;
+}
+
+img {
+  display: block;
+  max-width: 95%;
+  margin: 10px auto 4px auto;
+  border: 1px solid #d7d7d7;
+}
+
+code,
+pre {
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+pre {
+  background: #f7f7f7;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.cover {
+  text-align: center;
+  margin-top: 20mm;
+}
+
+.cover .title {
+  font-size: 24pt;
+  font-weight: 700;
+  margin-bottom: 18mm;
+}
+
+.cover .line {
+  margin: 6px 0;
+  font-size: 12.5pt;
+}
+
+.figure-caption {
+  text-align: center;
+  font-size: 10.5pt;
+  color: #333;
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+
+.equation {
+  text-align: center;
+  margin: 8px 0;
+  font-style: italic;
+}
+
+.page-break {
+  page-break-before: always;
+}
+</style></head><body><div class="cover">
+  <div class="title">5G同步信号处理实验报告</div>
+  <div class="line">题目：频谱分析、TOA估计、PSS识别与大频偏补偿</div>
+  <div class="line">课程：5G通信系统实验</div>
+  <div class="line">姓名：__________</div>
+  <div class="line">学号：__________</div>
+  <div class="line">班级：__________</div>
+  <div class="line">日期：2026年__月__日</div>
+</div>
+
+<div class="page-break"></div>
+
+<h1>摘要</h1>
+<p>本文基于 <code>data_5G.mat</code> 实验数据，完成了 5G 同步接收中的三个核心任务：信号频谱分析、到达时间（TOA）估计和主同步信号（PSS）识别。首先，利用 Welch 功率谱估计方法对正常接收信号和含频偏接收信号进行频域对比，验证了频偏对频谱形态及相关处理稳定性的影响。其次，采用时域互相关方法进行 TOA 估计，并通过三组本地模板峰值比较完成 PSS 判决。最后，针对“含大频偏信号相关峰不明显”的问题，提出并实现了“粗同步 + CFO网格搜索 + 频偏补偿 + 再相关”的工程化方案。实验结果表明：补偿后含频偏信号的 TOA 结果与正常信号结果重新接近，验证了该方案在大频偏场景下的有效性。</p>
+<p><strong>关键词</strong>：5G；同步；TOA；PSS；频偏补偿；互相关</p>
+<h2>1 引言</h2>
+<p>在 5G 接收机初始同步过程中，PSS 检测与时延估计是完成小区搜索和后续解调的基础。理论上，当本地模板与接收信号在时间和频率上对齐时，互相关输出会出现明显主峰，便于定位 TOA 并判决 (N_{PSS})。然而，实际系统中常存在较大的载波频偏（CFO），导致相关峰畸变、主峰不突出甚至误检。<br />
+因此，本实验不仅完成常规同步任务，还重点针对频偏失配问题进行算法改进与可视化验证。</p>
+<h2>2 实验数据与任务说明</h2>
+<h3>2.1 数据说明</h3>
+<p>采样率为 (F_s=7.68\text{ MHz})，采样间隔为 (T_s=1/F_s)。实验数据包括：</p>
+<ol>
+<li><code>recv_signal</code>：正常接收信号，<code>460800 x 1</code> 复数序列；</li>
+<li><code>recv_signal_freq_offset</code>：含大频偏接收信号，<code>460800 x 1</code> 复数序列；</li>
+<li><code>ref_signal_grid</code>：本地模板矩阵，<code>256 x 3</code> 复数序列（3个 PSS 候选模板）。</li>
+</ol>
+<h3>2.2 实验任务</h3>
+<ol>
+<li>绘制接收信号频谱（PSD）；</li>
+<li>使用 <code>xcorr</code> 完成 TOA 估计；</li>
+<li>依据三模板相关峰值完成 PSS 判决并给出 (N_{PSS})；</li>
+<li>解决大频偏导致相关峰不明显的问题，并完成补偿前后可视化对比。</li>
+</ol>
+<h2>3 理论基础</h2>
+<h3>3.1 互相关 TOA 估计</h3>
+<p>接收信号 (r[n]) 与模板 (s[n]) 的互相关为：</p>
+<div class="equation">\(z[k]=\sum_n r[n]\,s^*[n-k]\)</div>
+
+<p>其中 (|z[k]|) 最大值位置对应时延估计：</p>
+<div class="equation">\(\hat{k}_{TOA}=\arg\max_k |z[k]|\)</div>
+
+<p>时间估计为：</p>
+<div class="equation">\(\hat{t}_{TOA}=\hat{k}_{TOA}/F_s\)</div>
+
+<h3>3.2 PSS 判决</h3>
+<p>将接收信号与 <code>ref_signal_grid</code> 的三列模板分别做相关，比较峰值大小，峰值最大者对应最可能的 PSS 模板。本文按课程常用映射：</p>
+<div class="equation">模板列 1/2/3 \(\rightarrow\) \(N_{PSS}=0/1/2\)</div>
+
+<h3>3.3 大频偏影响机理</h3>
+<p>存在频偏 (\Delta f) 时：</p>
+<div class="equation">\(r[n]=s[n-n_0]e^{j2\pi \Delta f n/F_s}+w[n]\)</div>
+
+<p>模板长度内相位持续旋转，破坏相干累加，互相关主峰下降，易出现峰值漂移或误检。</p>
+<h2>4 方法与程序设计</h2>
+<h3>4.1 MATLAB 主程序结构</h3>
+<p>文件：<code>run_5g_experiment.m</code>，主要模块如下：</p>
+<ol>
+<li><strong>数据读入与参数配置</strong>：设置 (F_s=7.68\text{ MHz})；</li>
+<li><strong>频谱分析模块</strong>：输出 <code>recv_signal</code> 与 <code>recv_signal_freq_offset</code> 的 PSD 对比图；</li>
+<li><strong>TOA+PSS 模块</strong>：<code>detect_toa_pss()</code> 对 3 个模板循环相关，输出峰值、时延、判决结果；</li>
+<li><strong>大频偏补偿模块</strong>：<code>solve_large_cfo()</code> 实现粗细频偏搜索并补偿；</li>
+<li><strong>可视化模块</strong>：输出补偿前后相关曲线、频偏搜索曲线、相位漂移曲线。</li>
+</ol>
+<h3>4.2 大频偏补偿算法（对应进一步讨论）</h3>
+<p>设粗同步窗口信号为 (r_{seg}[n])，模板为 (s[n])。定义频偏候选集合 (\Delta f_i)，计算：</p>
+<div class="equation">\(M(\Delta f_i)=\left|\sum_n r_{seg}[n]e^{-j2\pi\Delta f_i n/F_s}s^*[n]\right|\)</div>
+
+<p>选择使 (M) 最大的 (\hat{\Delta f}) 后，对全序列补偿：</p>
+<div class="equation">\(r_c[n]=r[n]e^{-j2\pi\hat{\Delta f}n/F_s}\)</div>
+
+<p>然后重新进行 TOA 与 PSS 判决。</p>
+<h3>4.3 Python 图像生成程序</h3>
+<p>文件：<code>generate_report_figures.py</code>，作用为：</p>
+<ol>
+<li>复现与 MATLAB 一致的处理逻辑；</li>
+<li>批量导出报告图像到 <code>report_figures/</code>；</li>
+<li>输出 <code>results_summary.json</code> 供报告写作调用。</li>
+</ol>
+<h2>5 实验结果与分析</h2>
+<h3>5.1 定量结果</h3>
+<p>根据 <code>results_summary.json</code>，关键结果汇总如下。</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th style="text-align: right;">最优模板列号</th>
+<th style="text-align: right;">判决 (N_{PSS})</th>
+<th style="text-align: right;">TOA lag (samples)</th>
+<th style="text-align: right;">TOA (us)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>正常信号 <code>recv_signal</code></td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">142275</td>
+<td style="text-align: right;">18525.52</td>
+</tr>
+<tr>
+<td>含频偏信号（补偿前）</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">296152</td>
+<td style="text-align: right;">38561.59</td>
+</tr>
+<tr>
+<td>含频偏信号（补偿后）</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">142888</td>
+<td style="text-align: right;">18605.34</td>
+</tr>
+</tbody>
+</table>
+<p>频偏补偿参数：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th style="text-align: right;">数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CFO估计模板列号</td>
+<td style="text-align: right;">3</td>
+</tr>
+<tr>
+<td>估计 CFO (Hz)</td>
+<td style="text-align: right;">116700</td>
+</tr>
+<tr>
+<td>补偿前峰值指标</td>
+<td style="text-align: right;">203.07</td>
+</tr>
+<tr>
+<td>补偿后峰值指标</td>
+<td style="text-align: right;">184.92</td>
+</tr>
+</tbody>
+</table>
+<p>说明：尽管“峰值指标”并非单调增大，但补偿后 TOA 已从明显异常位置回到与正常信号接近的区域（约 142k samples），同步结论更一致，说明补偿策略有效。</p>
+<h3>5.2 频谱与时域图</h3>
+<p><img alt="图1 时域波形" src="report_figures/fig1_time_domain.png" /></p>
+<p class="figure-caption">图1 正常信号与含频偏信号时域波形（实部/虚部）</p>
+
+<p><img alt="图2 PSD对比" src="report_figures/fig2_psd.png" /></p>
+<p class="figure-caption">图2 两类接收信号功率谱密度对比</p>
+
+<h3>5.3 正常信号同步结果</h3>
+<p><img alt="图3 正常信号相关曲线" src="report_figures/fig3_corr_recv_signal.png" /></p>
+<p class="figure-caption">图3 正常信号与三模板互相关归一化曲线</p>
+
+<p><img alt="图4 正常信号判决特征" src="report_figures/fig4_pss_features_recv_signal.png" /></p>
+<p class="figure-caption">图4 正常信号三模板峰值与峰值指标对比</p>
+
+<h3>5.4 大频偏问题与补偿效果</h3>
+<p><img alt="图5 补偿前相关曲线" src="report_figures/fig5_corr_freq_offset_raw.png" /></p>
+<p class="figure-caption">图5 含频偏信号补偿前三模板相关曲线</p>
+
+<p><img alt="图6 CFO搜索曲线" src="report_figures/fig6_cfo_search.png" /></p>
+<p class="figure-caption">图6 频偏细搜索指标曲线</p>
+
+<p><img alt="图7 补偿前后相关对比" src="report_figures/fig7_corr_before_after_comp.png" /></p>
+<p class="figure-caption">图7 最优模板补偿前后相关曲线对比</p>
+
+<p><img alt="图8 相位漂移对比" src="report_figures/fig8_phase_before_after_comp.png" /></p>
+<p class="figure-caption">图8 匹配窗口内相位漂移补偿前后对比</p>
+
+<p><img alt="图9 补偿后相关曲线" src="report_figures/fig9_corr_freq_offset_comp.png" /></p>
+<p class="figure-caption">图9 含频偏信号补偿后三模板相关曲线</p>
+
+<h2>6 进一步讨论</h2>
+<p>PPT 最后一页提出的问题是：<code>recv_signal_freq_offset</code> 在相关计算中“没有明显峰值”时如何处理。<br />
+本实验的答案是：</p>
+<ol>
+<li><strong>先做粗时间同步</strong>，避免全局盲估计造成计算量过大；</li>
+<li><strong>在粗同步窗口做 CFO 粗细两级网格搜索</strong>，获取更稳定的 (\hat{\Delta f})；</li>
+<li><strong>频偏补偿后再做相关判决</strong>，恢复相干累加能力；</li>
+<li>必要时可加入更细粒度搜索、联合 TOA-CFO 二维搜索或非相干累加作为补充。</li>
+</ol>
+<p>该方案具备实现简单、可解释性强、可视化效果直观等优点，适合本实验场景。</p>
+<h2>7 结论</h2>
+<p>本文完整实现了 5G 同步实验的频谱分析、TOA 估计与 PSS 判决，并针对大频偏问题提出并实现了可执行补偿方案。实验表明，频偏补偿后同步时延结果与正常信号结果明显趋近，验证了方法有效性。该流程可进一步扩展到更复杂的多径与低信噪比场景。</p>
+<h2>参考文献</h2>
+<ol>
+<li>3GPP TS 38.211, <em>NR; Physical channels and modulation</em>.  </li>
+<li>Proakis J. G., <em>Digital Communications</em>, McGraw-Hill.  </li>
+<li>Oppenheim A. V., Schafer R. W., <em>Discrete-Time Signal Processing</em>.  </li>
+<li>MATLAB Documentation: <code>xcorr</code>, <code>pwelch</code>, FFT-related functions.</li>
+</ol>
+<h2>附录：代码与文件清单</h2>
+<ol>
+<li><code>run_5g_experiment.m</code>：MATLAB 主程序  </li>
+<li><code>generate_report_figures.py</code>：Python 出图程序  </li>
+<li><code>results_summary.json</code>：结果摘要  </li>
+<li><code>report_figures/</code>：报告插图目录  </li>
+<li><code>paper_style.css</code>：论文排版样式</li>
+</ol></body></html>

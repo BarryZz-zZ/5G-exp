@@ -1,0 +1,60 @@
+{
+  "fs_hz": 7680000.0,
+  "normal": {
+    "best_template_idx_1based": 2,
+    "assumed_npss": 1,
+    "toa_lag": 142275,
+    "toa_sample": 142276,
+    "toa_time_us": 18525.520833333332,
+    "peak_abs": [
+      723.9577518980635,
+      836.4492654564317,
+      730.25959993142
+    ],
+    "peak_metric": [
+      178.16937414447983,
+      206.07325045753853,
+      180.39398636850413
+    ]
+  },
+  "freq_offset_raw": {
+    "best_template_idx_1based": 3,
+    "assumed_npss": 2,
+    "toa_lag": 296152,
+    "toa_sample": 296153,
+    "toa_time_us": 38561.588541666664,
+    "peak_abs": [
+      751.5621865345416,
+      736.5502369050631,
+      823.9347334574137
+    ],
+    "peak_metric": [
+      184.32709986595646,
+      181.05141750131492,
+      203.06925822236605
+    ]
+  },
+  "cfo_solution": {
+    "selected_template_idx_1based": 3,
+    "estimated_cfo_hz": 116700.0,
+    "raw_peak_metric": 203.06925822236605,
+    "comp_peak_metric": 184.9231049188425
+  },
+  "freq_offset_compensated": {
+    "best_template_idx_1based": 1,
+    "assumed_npss": 0,
+    "toa_lag": 142888,
+    "toa_sample": 142889,
+    "toa_time_us": 18605.338541666664,
+    "peak_abs": [
+      772.266794689858,
+      735.1918039230065,
+      750.6139044970918
+    ],
+    "peak_metric": [
+      186.02237597608806,
+      181.7367163866547,
+      184.9231049188425
+    ]
+  }
+}
